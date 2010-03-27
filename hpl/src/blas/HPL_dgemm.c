@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -53,7 +53,7 @@
 
 #ifdef HPL_CALL_VSIPL
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 static void HPL_dgemmNN
 (
    const int                  M,
@@ -91,7 +91,7 @@ static void HPL_dgemmNN( M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC )
    }
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 static void HPL_dgemmNT
 (
    const int                  M,
@@ -129,7 +129,7 @@ static void HPL_dgemmNT( M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC )
    }
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 static void HPL_dgemmTN
 (
    const int                  M,
@@ -169,7 +169,7 @@ static void HPL_dgemmTN( M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC )
    }
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 static void HPL_dgemmTT
 (
    const int                  M,
@@ -209,7 +209,7 @@ static void HPL_dgemmTT( M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC )
    }
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 static void HPL_dgemm0
 (
    const enum HPL_TRANS       TRANSA,
@@ -267,7 +267,7 @@ static void HPL_dgemm0( TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB,
 
 #endif
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_dgemm
 (
    const enum HPL_ORDER             ORDER,

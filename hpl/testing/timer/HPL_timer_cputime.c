@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -71,7 +71,7 @@
  
 #include <time.h>
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 double HPL_timer_cputime( void )
 #else
 double HPL_timer_cputime()
@@ -86,14 +86,14 @@ double HPL_timer_cputime()
    t1 = clock() - t0;
    d = (double)(t1) / cps;
    return( d );
-} 
+}
 
 #elif defined( HPL_USE_TIMES )
  
 #include <sys/times.h>
 #include <unistd.h>
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 double HPL_timer_cputime( void )
 #else
 double HPL_timer_cputime()
@@ -107,20 +107,37 @@ double HPL_timer_cputime()
    (void) times( &ts );
    return( (double)(ts.tms_utime) / ClockTick );
 }
- 
-/* #elif defined( HPL_USE_GETRUSAGE )  */
+
+#elif defined( HPL_USE_GETPROCESSTIMES )
+
+#include <time.h>
+#include <windows.h>
+
+#ifdef HPL_STDC_HEADERS
+double HPL_timer_cputime( void )
+#else
+double HPL_timer_cputime()
+#endif
+{
+  FILETIME creation, exit, kernel, user;
+  GetProcessTimes( GetCurrentProcess(), &creation, &exit, &kernel, &user );
+  return (*(LONGLONG*)&kernel+*(LONGLONG*)&user)*1e-7;
+}
+
+/* #elif defined( HPL_USE_GETRUSAGE ) */
 #else
  
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 double HPL_timer_cputime( void )
 #else
 double HPL_timer_cputime()
 #endif
 {
    struct rusage              ruse;
+
    (void) getrusage( RUSAGE_SELF, &ruse );
    return( (double)( ruse.ru_utime.tv_sec  ) +
            ( (double)( ruse.ru_utime.tv_usec ) / 1000000.0 ) );
@@ -129,7 +146,7 @@ double HPL_timer_cputime()
 /* 
 #else
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 double HPL_timer_cputime( void )
 #else
 double HPL_timer_cputime()

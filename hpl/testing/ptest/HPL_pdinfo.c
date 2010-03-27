@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -49,7 +49,20 @@
  */
 #include "hpl.h"
 
-#ifdef STDC_HEADERS
+extern int
+HPCC_Defaults(HPL_T_test *TEST, int *NS, int *N,
+              int *NBS, int *NB,
+              HPL_T_ORDER *PMAPPIN,
+              int *NPQS, int *P, int *Q,
+              int *NPFS, HPL_T_FACT *PF,
+              int *NBMS, int *NBM,
+              int *NDVS, int *NDV,
+              int *NRFS, HPL_T_FACT *RF,
+              int *NTPS, HPL_T_TOP *TP,
+              int *NDHS, int *DH,
+              HPL_T_SWAP *FSWAP, int *TSWAP, int *L1NOTRAN, int *UNOTRAN, int *EQUIL, int *ALIGN, MPI_Comm comm);
+
+#ifdef HPL_STDC_HEADERS
 void HPL_pdinfo
 (
    HPL_T_test *                     TEST,
@@ -271,7 +284,7 @@ void HPL_pdinfo
    char                       file[HPL_LINE_MAX], line[HPL_LINE_MAX],
                               auth[HPL_LINE_MAX], num [HPL_LINE_MAX];
    FILE                       * infp;
-   int                        * iwork = NULL;
+   int                        * iwork;
    char                       * lineptr;
    int                        error=0, fid, i, j, lwork, maxp, nprocs,
                               rank, size;
@@ -294,13 +307,15 @@ void HPL_pdinfo
 /*
  * Open file and skip data file header
  */
-      if( ( infp = fopen( "HPL.dat", "r" ) ) == NULL )
+#define INFILE "hpccinf.txt"
+      if( ( infp = fopen( INFILE, "r" ) ) == NULL )
       { 
          HPL_pwarn( stderr, __LINE__, "HPL_pdinfo",
-                    "cannot open file HPL.dat" );
-         error = 1; goto label_error;
+                    "cannot open file " INFILE );
+         error = 1; /* goto label_error; */
       }
 
+      if (infp) {
       (void) fgets( line, HPL_LINE_MAX - 2, infp );
       (void) fgets( auth, HPL_LINE_MAX - 2, infp );
 /*
@@ -311,14 +326,20 @@ void HPL_pdinfo
       (void) fgets( line, HPL_LINE_MAX - 2, infp );
       (void) sscanf( line, "%s", num  );
       fid = atoi( num );
+      }
+
+      fid = 8; /* always write to a file */
+      strcpy( file, "hpccoutf.txt" );
       if     ( fid == 6 ) TEST->outfp = stdout;
       else if( fid == 7 ) TEST->outfp = stderr;
-      else if( ( TEST->outfp = fopen( file, "w" ) ) == NULL )
+      else if( ( TEST->outfp = fopen( file, "a" ) ) == NULL )
       {
          HPL_pwarn( stderr, __LINE__, "HPL_pdinfo", "cannot open file %s.",
                     file );
+         TEST->outfp = stderr;
          error = 1; goto label_error;
       }
+      if (error == 1) goto label_error;
 /*
  * Read and check the parameter values for the tests.
  *
@@ -607,7 +628,7 @@ void HPL_pdinfo
  * Close input file
  */
 label_error:
-      (void) fclose( infp );
+      if (infp) fclose( infp );
    }
    else { TEST->outfp = NULL; }
 /*
@@ -617,14 +638,34 @@ label_error:
                           MPI_COMM_WORLD );
    if( error )
    {
+     /*
       if( rank == 0 )
          HPL_pwarn( stderr, __LINE__, "HPL_pdinfo",
-                    "Illegal input in file HPL.dat. Exiting ..." );
+                    "Illegal input in file " INFILE ". Exiting ..." );
       MPI_Finalize();
 #ifdef HPL_CALL_VSIPL
       (void) vsip_finalize( NULL );
 #endif
       exit( 1 );
+      */
+     HPCC_Defaults( TEST, /* use outfp, set threshold */
+                    NS, N,
+                    NBS, NB,
+                    PMAPPIN,
+                    NPQS, P, Q,
+                    NPFS, PF,
+                    NBMS, NBM,
+                    NDVS, NDV,
+                    NRFS, RF,
+                    NTPS, TP,
+                    NDHS, DH,
+                    FSWAP,
+                    TSWAP,
+                    L1NOTRAN,
+                    UNOTRAN,
+                    EQUIL,
+                    ALIGN,
+                    MPI_COMM_WORLD );
    }
 /*
  * Compute and broadcast machine epsilon
@@ -638,7 +679,7 @@ label_error:
 /*
  * Broadcast array sizes
  */
-   iwork = (int *)malloc( 15 * sizeof( int ) );
+   iwork = (int *)malloc( (size_t)(15) * sizeof( int ) );
    if( rank == 0 )
    {
       iwork[ 0] = *NS;      iwork[ 1] = *NBS;
@@ -664,7 +705,7 @@ label_error:
  */
    lwork = (*NS) + (*NBS) + 2 * (*NPQS) + (*NPFS) + (*NBMS) + 
            (*NDVS) + (*NRFS) + (*NTPS) + (*NDHS) + 1;
-   iwork = (int *)malloc( lwork * sizeof( int ) );
+   iwork = (int *)malloc( (size_t)(lwork) * sizeof( int ) );
    if( rank == 0 )
    {
       j = 0;
@@ -755,17 +796,23 @@ label_error:
    if( rank == 0 )
    {
       HPL_fprintf( TEST->outfp, "%s%s\n",
-                   "======================================",
-                   "======================================" );
+                   "========================================",
+                   "========================================" );
       HPL_fprintf( TEST->outfp, "%s%s\n",
-          "HPLinpack 1.0a  --  High-Performance Linpack benchmark  --  ",
-          " January 20, 2004" );
+          "HPLinpack 2.0  --  High-Performance Linpack benchmark  --  ",
+          " September 10, 2008" );
       HPL_fprintf( TEST->outfp, "%s%s\n",
           "Written by A. Petitet and R. Clint Whaley,  ",
-          "Innovative Computing Labs.,  UTK" );
+          "Innovative Computing Laboratory, UTK" );
       HPL_fprintf( TEST->outfp, "%s%s\n",
-                   "======================================",
-                   "======================================" );
+          "Modified by Piotr Luszczek, ",
+          "Innovative Computing Laboratory, UTK" );
+      HPL_fprintf( TEST->outfp, "%s%s\n",
+          "Modified by Julien Langou, ",
+          "University of Colorado Denver");
+      HPL_fprintf( TEST->outfp, "%s%s\n",
+                   "========================================",
+                   "========================================" );
 
       HPL_fprintf( TEST->outfp, "\n%s\n",
           "An explanation of the input/output parameters follows:" );
@@ -1098,23 +1145,19 @@ label_error:
       if( TEST->thrsh > HPL_rzero )
       {
          HPL_fprintf( TEST->outfp, "%s%s\n\n",
-                      "--------------------------------------",
-                      "--------------------------------------" );
+                      "----------------------------------------",
+                      "----------------------------------------" );
          HPL_fprintf( TEST->outfp, "%s\n",
             "- The matrix A is randomly generated for each test." );
          HPL_fprintf( TEST->outfp, "%s\n",
-            "- The following scaled residual checks will be computed:" );
+            "- The following scaled residual check will be computed:" );
          HPL_fprintf( TEST->outfp, "%s\n",
-            "   1) ||Ax-b||_oo / ( eps * ||A||_1  * N        )" );
-         HPL_fprintf( TEST->outfp, "%s\n",
-            "   2) ||Ax-b||_oo / ( eps * ||A||_1  * ||x||_1  )" );
-         HPL_fprintf( TEST->outfp, "%s\n",
-            "   3) ||Ax-b||_oo / ( eps * ||A||_oo * ||x||_oo )" );
+            "      ||Ax-b||_oo / ( eps * ( || x ||_oo * || A ||_oo + || b ||_oo ) * N )" );
          HPL_fprintf( TEST->outfp, "%s %21.6e\n",
-            "- The relative machine precision (eps) is taken to be",
+            "- The relative machine precision (eps) is taken to be     ",
             TEST->epsil );
          HPL_fprintf( TEST->outfp, "%s   %11.1f\n\n",
-            "- Computational tests pass if scaled residuals are less than ",
+            "- Computational tests pass if scaled residuals are less than      ",
             TEST->thrsh );
       }
    }

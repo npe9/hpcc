@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -63,7 +63,7 @@ static double      HPL_ptimer_cpusec   [HPL_NPTIMER],
  * User callable functions
  * ---------------------------------------------------------------------
  */
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_ptimer_boot( void )
 #else
 void HPL_ptimer_boot()
@@ -91,7 +91,7 @@ void HPL_ptimer_boot()
  */
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_ptimer( const int I )
 #else
 void HPL_ptimer( I )
@@ -150,7 +150,7 @@ void HPL_ptimer( I )
  */
 } 
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_ptimer_enable( void )
 #else
 void HPL_ptimer_enable()
@@ -169,7 +169,7 @@ void HPL_ptimer_enable()
  */
 } 
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_ptimer_disable( void )
 #else
 void HPL_ptimer_disable()
@@ -188,7 +188,7 @@ void HPL_ptimer_disable()
  */
 } 
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 double HPL_ptimer_inquire
 (
    const HPL_T_PTIME          TMTYPE,
@@ -252,7 +252,7 @@ double HPL_ptimer_inquire( TMTYPE, I )
  */
 }
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 void HPL_ptimer_combine
 (
    MPI_Comm                   COMM,

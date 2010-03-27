@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -49,23 +49,27 @@
  */
 #include "hpl.h"
 
-#ifdef STDC_HEADERS
+#include <hpccmema.h>
+
+#ifdef HPL_STDC_HEADERS
 void HPL_pdtest
 (
    HPL_T_test *                     TEST,
    HPL_T_grid *                     GRID,
    HPL_T_palg *                     ALGO,
    const int                        N,
-   const int                        NB
+   const int                        NB,
+   HPL_RuntimeData *                rdata
 )
 #else
 void HPL_pdtest
-( TEST, GRID, ALGO, N, NB )
+( TEST, GRID, ALGO, N, NB, rdata )
    HPL_T_test *                     TEST;
    HPL_T_grid *                     GRID;
    HPL_T_palg *                     ALGO;
    const int                        N;
    const int                        NB;
+   HPL_RuntimeData *                rdata;
 #endif
 {
 /* 
@@ -86,11 +90,11 @@ void HPL_pdtest
  *         specifies the output file where the results will be printed.
  *         It is only defined and used by the process  0  of the  grid.
  *         thrsh  specifies  the  threshhold value  for the test ratio.
- *         Concretely, a test is declared "PASSED"  if and only if  all
- *         of the following inequalities are satisfied:
- *         ||Ax-b||_oo / ( epsil * ||A||_1  * N        ) < thrsh,
- *         ||Ax-b||_oo / ( epsil * ||A||_1  * ||x||_1  ) < thrsh,
- *         ||Ax-b||_oo / ( epsil * ||A||_oo * ||x||_oo ) < thrsh.
+ *         Concretely, a test is declared "PASSED"  if and only if the
+ *         following inequality is satisfied:
+ *         ||Ax-b||_oo / ( epsil *
+ *                         ( || x ||_oo * || A ||_oo + || b ||_oo ) *
+ *                          N )  < thrsh.
  *         epsil  is the  relative machine precision of the distributed
  *         computer. Finally the test counters, kfail, kpass, kskip and
  *         ktest are updated as follows:  if the test passes,  kpass is
@@ -126,7 +130,7 @@ void HPL_pdtest
    double                     wtime[1];
    int                        info[3];
    double                     Anorm1, AnormI, Gflops, Xnorm1, XnormI,
-                              resid0, resid1, resid2, resid3;
+                              BnormI, resid0, resid1;
    double                     * Bptr;
    void                       * vptr = NULL;
    static int                 first=1;
@@ -157,10 +161,13 @@ void HPL_pdtest
       while( ii > 1 ) { ii >>= 1; ip2 <<= 1; }
    }
    while( mat.ld == ip2 );
+
 /*
  * Allocate dynamic memory
  */
-   vptr = (void*)malloc( (ALGO->align + (mat.ld+1)*(mat.nq))*sizeof(double) );
+   vptr = (void*)HPCC_malloc( ( (size_t)(ALGO->align) +
+                           (size_t)(mat.ld+1) * (size_t)(mat.nq) ) *
+                         sizeof(double) );
    info[0] = (vptr == NULL); info[1] = myrow; info[2] = mycol;
    (void) HPL_all_reduce( (void *)(info), 3, HPL_INT, HPL_max,
                           GRID->all_comm );
@@ -178,7 +185,7 @@ void HPL_pdtest
  */
    mat.A  = (double *)HPL_PTR( vptr,
                                ((size_t)(ALGO->align) * sizeof(double) ) );
-   mat.X  = mat.A + (mat.ld * mat.nq);
+   mat.X  = Mptr( mat.A, 0, mat.nq, mat.ld );
    HPL_pdmatgen( GRID, N, N+1, NB, mat.A, mat.ld, HPL_ISEED );
 #ifdef HPL_CALL_VSIPL
    mat.block = vsip_blockbind_d( (vsip_scalar_d *)(mat.A),
@@ -207,28 +214,35 @@ void HPL_pdtest
       if( first )
       {
          HPL_fprintf( TEST->outfp, "%s%s\n",
-                      "======================================",
-                      "======================================" );
+                      "========================================",
+                      "========================================" );
          HPL_fprintf( TEST->outfp, "%s%s\n",
                       "T/V                N    NB     P     Q",
-                      "               Time             Gflops" );
+                      "               Time                 Gflops" );
          HPL_fprintf( TEST->outfp, "%s%s\n",
-                      "--------------------------------------",
-                      "--------------------------------------" );
+                      "----------------------------------------",
+                      "----------------------------------------" );
          if( TEST->thrsh <= HPL_rzero ) first = 0;
       }
 /*
  * 2/3 N^3 - 1/2 N^2 flops for LU factorization + 2 N^2 flops for solve.
  * Print WALL time
  */
+      rdata->Gflops =
       Gflops = ( ( (double)(N) /   1.0e+9 ) * 
                  ( (double)(N) / wtime[0] ) ) * 
                  ( ( 2.0 / 3.0 ) * (double)(N) + ( 3.0 / 2.0 ) );
 
-      cpfact = ( ( ALGO->pfact == HPL_LEFT_LOOKING ) ? 'L' :
-                 ( ( ALGO->pfact == HPL_CROUT ) ? 'C' : 'R' ) );
-      crfact = ( ( ALGO->rfact == HPL_LEFT_LOOKING ) ? 'L' :
-                 ( ( ALGO->rfact == HPL_CROUT ) ? 'C' : 'R' ) );
+      rdata->cpfact =
+      cpfact = ( ( (HPL_T_FACT)(ALGO->pfact) == 
+                   (HPL_T_FACT)(HPL_LEFT_LOOKING) ) ?  (char)('L') :
+                 ( ( (HPL_T_FACT)(ALGO->pfact) == (HPL_T_FACT)(HPL_CROUT) ) ?
+                   (char)('C') : (char)('R') ) );
+      rdata->crfact =
+      crfact = ( ( (HPL_T_FACT)(ALGO->rfact) == 
+                   (HPL_T_FACT)(HPL_LEFT_LOOKING) ) ?  (char)('L') :
+                 ( ( (HPL_T_FACT)(ALGO->rfact) == (HPL_T_FACT)(HPL_CROUT) ) ? 
+                   (char)('C') : (char)('R') ) );
 
       if(      ALGO->btopo == HPL_1RING   ) ctop = '0';
       else if( ALGO->btopo == HPL_1RING_M ) ctop = '1';
@@ -236,10 +250,21 @@ void HPL_pdtest
       else if( ALGO->btopo == HPL_2RING_M ) ctop = '3';
       else if( ALGO->btopo == HPL_BLONG   ) ctop = '4';
       else /* if( ALGO->btopo == HPL_BLONG_M ) */ ctop = '5';
+      rdata->ctop = ctop;
 
+      rdata->eps = TEST->epsil;
+      rdata->order = ( GRID->order == HPL_ROW_MAJOR ? 'R' : 'C' );
+      rdata->depth = ALGO->depth;
+      rdata->nbdiv = ALGO->nbdiv;
+      rdata->nbmin = ALGO->nbmin;
+      rdata->time = wtime[0];
+      rdata->N = N;
+      rdata->NB = NB;
+      rdata->nprow = nprow;
+      rdata->npcol = npcol;
       if( wtime[0] > HPL_rzero )
          HPL_fprintf( TEST->outfp,
-             "W%c%1d%c%c%1d%c%1d%12d %5d %5d %5d %18.2f %18.3e\n",
+             "W%c%1d%c%c%1d%c%1d%12d %5d %5d %5d %18.2f     %18.3e\n",
              ( GRID->order == HPL_ROW_MAJOR ? 'R' : 'C' ),
              ALGO->depth, ctop, crfact, ALGO->nbdiv, cpfact, ALGO->nbmin,
              N, NB, nprow, npcol, wtime[0], Gflops );
@@ -297,15 +322,15 @@ void HPL_pdtest
 
       if( TEST->thrsh <= HPL_rzero )
          HPL_fprintf( TEST->outfp, "%s%s\n",
-                      "======================================",
-                      "======================================" );
+                      "========================================",
+                      "========================================" );
    }
 #endif
 /*
  * Quick return, if I am not interested in checking the computations
  */
    if( TEST->thrsh <= HPL_rzero )
-   { (TEST->kpass)++; if( vptr ) free( vptr ); return; }
+   { (TEST->kpass)++; if( vptr ) HPCC_free( vptr ); return; }
 /*
  * Check info returned by solve
  */
@@ -315,25 +340,50 @@ void HPL_pdtest
          HPL_pwarn( TEST->outfp, __LINE__, "HPL_pdtest", "%s %d, %s", 
                     "Error code returned by solve is", mat.info, "skip" );
       (TEST->kskip)++;
-      if( vptr ) free( vptr ); return;
+      if( vptr ) HPCC_free( vptr ); return;
    }
 /*
  * Check computation, re-generate [ A | b ], compute norm 1 and inf of A and x,
  * and norm inf of b - A x. Display residual checks.
  */
    HPL_pdmatgen( GRID, N, N+1, NB, mat.A, mat.ld, HPL_ISEED );
+   rdata->Anorm1 =
    Anorm1 = HPL_pdlange( GRID, HPL_NORM_1, N, N, NB, mat.A, mat.ld );
+   rdata->AnormI =
    AnormI = HPL_pdlange( GRID, HPL_NORM_I, N, N, NB, mat.A, mat.ld );
 /*
  * Because x is distributed in process rows, switch the norms
  */
+   rdata->XnormI =
    XnormI = HPL_pdlange( GRID, HPL_NORM_1, 1, N, NB, mat.X, 1 );
+   rdata->Xnorm1 =
    Xnorm1 = HPL_pdlange( GRID, HPL_NORM_I, 1, N, NB, mat.X, 1 );
+/*
+ * If I am in the col that owns b, (1) compute local BnormI, (2) all_reduce to
+ * find the max (in the col). Then (3) broadcast along the rows so that every
+ * process has BnormI. Note that since we use a uniform distribution in [-0.5,0.5]
+ * for the entries of B, it is very likely that BnormI (<=,~) 0.5.
+ */
+   Bptr = Mptr( mat.A, 0, nq, mat.ld );
+   if( mycol == HPL_indxg2p( N, NB, NB, 0, npcol ) ){
+      if( mat.mp > 0 )
+      {
+         BnormI = Bptr[HPL_idamax( mat.mp, Bptr, 1 )]; BnormI = Mabs( BnormI );
+      }
+      else
+      {
+         BnormI = HPL_rzero;
+      }
+      (void) HPL_all_reduce( (void *)(&BnormI), 1, HPL_DOUBLE, HPL_max,
+                             GRID->col_comm );
+   }
+   (void) HPL_broadcast( (void *)(&BnormI), 1, HPL_DOUBLE,
+                          HPL_indxg2p( N, NB, NB, 0, npcol ),
+                          GRID->row_comm );
+   rdata->BnormI = BnormI;
 /*
  * If I own b, compute ( b - A x ) and ( - A x ) otherwise
  */
-   Bptr = mat.A + mat.ld * nq;
-
    if( mycol == HPL_indxg2p( N, NB, NB, 0, npcol ) )
    {
       HPL_dgemv( HplColumnMajor, HplNoTrans, mat.mp, nq, -HPL_rone,
@@ -354,43 +404,33 @@ void HPL_pdtest
 /*
  * Compute || b - A x ||_oo
  */
+   rdata->RnormI =
    resid0 = HPL_pdlange( GRID, HPL_NORM_I, N, 1, NB, Bptr, mat.ld );
 /*
  * Computes and displays norms, residuals ...
  */
-   if( ( Anorm1 == HPL_rzero ) || ( AnormI == HPL_rzero ) ||
-       ( Xnorm1 == HPL_rzero ) || ( Xnorm1 == HPL_rzero ) || ( N <= 0 ) )
+   if( N <= 0 )
    {
-      resid1 = resid2 = resid3 = HPL_rzero;
+      resid1 = HPL_rzero;
    }
    else
    {
-      resid1 = resid0 / ( TEST->epsil * Anorm1          * (double)(N) );
-      resid2 = resid0 / ( TEST->epsil * Anorm1 * Xnorm1               );
-      resid3 = resid0 / ( TEST->epsil * AnormI * XnormI * (double)(N) );
+      resid1 = resid0 / ( TEST->epsil * ( AnormI * XnormI + BnormI ) * (double)(N) );
    }
 
-   if( ( Mmax( resid1, resid2 ) < TEST->thrsh ) &&
-       ( resid3 < TEST->thrsh ) ) (TEST->kpass)++;
-   else                           (TEST->kfail)++;
+   if( resid1 < TEST->thrsh ) (TEST->kpass)++;
+   else                       (TEST->kfail)++;
 
    if( ( myrow == 0 ) && ( mycol == 0 ) )
    {
       HPL_fprintf( TEST->outfp, "%s%s\n",
-                   "--------------------------------------",
-                   "--------------------------------------" );
+                   "----------------------------------------",
+                   "----------------------------------------" );
       HPL_fprintf( TEST->outfp, "%s%16.7f%s%s\n",
-         "||Ax-b||_oo / ( eps * ||A||_1  * N        ) = ", resid1,
+         "||Ax-b||_oo/(eps*(||A||_oo*||x||_oo+||b||_oo)*N)= ", resid1,
          " ...... ", ( resid1 < TEST->thrsh ? "PASSED" : "FAILED" ) );
-      HPL_fprintf( TEST->outfp, "%s%16.7f%s%s\n",
-         "||Ax-b||_oo / ( eps * ||A||_1  * ||x||_1  ) = ", resid2,
-         " ...... ", ( resid2 < TEST->thrsh ? "PASSED" : "FAILED" ) );
-      HPL_fprintf( TEST->outfp, "%s%16.7f%s%s\n",
-         "||Ax-b||_oo / ( eps * ||A||_oo * ||x||_oo ) = ", resid3,
-         " ...... ", ( resid3 < TEST->thrsh ? "PASSED" : "FAILED" ) );
 
-      if( ( resid1 >= TEST->thrsh ) || ( resid2 >= TEST->thrsh ) ||
-          ( resid3 >= TEST->thrsh ) )
+      if( resid1 >= TEST->thrsh ) 
       {
          HPL_fprintf( TEST->outfp, "%s%18.6f\n",
          "||Ax-b||_oo  . . . . . . . . . . . . . . . . . = ", resid0 );
@@ -402,9 +442,11 @@ void HPL_pdtest
          "||x||_oo . . . . . . . . . . . . . . . . . . . = ", XnormI );
          HPL_fprintf( TEST->outfp, "%s%18.6f\n",
          "||x||_1  . . . . . . . . . . . . . . . . . . . = ", Xnorm1 );
+         HPL_fprintf( TEST->outfp, "%s%18.6f\n",
+         "||b||_oo . . . . . . . . . . . . . . . . . . . = ", BnormI );
       }
    }
-   if( vptr ) free( vptr );
+   if( vptr ) HPCC_free( vptr );
 /*
  * End of HPL_pdtest
  */

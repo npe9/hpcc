@@ -1,10 +1,10 @@
 /* 
  * -- High Performance Computing Linpack Benchmark (HPL)                
- *    HPL - 1.0a - January 20, 2004                          
+ *    HPL - 2.0 - September 10, 2008                          
  *    Antoine P. Petitet                                                
  *    University of Tennessee, Knoxville                                
- *    Innovative Computing Laboratories                                 
- *    (C) Copyright 2000-2004 All Rights Reserved                       
+ *    Innovative Computing Laboratory                                 
+ *    (C) Copyright 2000-2008 All Rights Reserved                       
  *                                                                      
  * -- Copyright notice and Licensing terms:                             
  *                                                                      
@@ -22,7 +22,7 @@
  * 3. All  advertising  materials  mentioning  features  or  use of this
  * software must display the following acknowledgement:                 
  * This  product  includes  software  developed  at  the  University  of
- * Tennessee, Knoxville, Innovative Computing Laboratories.             
+ * Tennessee, Knoxville, Innovative Computing Laboratory.             
  *                                                                      
  * 4. The name of the  University,  the name of the  Laboratory,  or the
  * names  of  its  contributors  may  not  be used to endorse or promote
@@ -49,7 +49,7 @@
  */
 #include "hpl.h"
 
-#ifdef STDC_HEADERS
+#ifdef HPL_STDC_HEADERS
 int HPL_packL
 (
    HPL_T_panel *                    PANEL,
@@ -165,7 +165,7 @@ int HPL_packL
          m1 = m - ( i1 = ibuf - ( j1 = ibuf / m ) * m );
          m1 = Mmin( len, m1 );
  
-         bufs[nbufs] = (void *)(Mptr( A, i1, j1, lda ));
+         bufs[nbufs] = (void **)(Mptr( A, i1, j1, lda ));
          type[nbufs] = MPI_DOUBLE;
          blen[nbufs] = m1;
          if( ierr == MPI_SUCCESS )
@@ -179,7 +179,7 @@ int HPL_packL
          {
             m1 = Mmin( len, m );
  
-            bufs[nbufs] = (void*)(Mptr( A, 0, j1, lda ));
+            bufs[nbufs] = (void**)(Mptr( A, 0, j1, lda ));
             type[nbufs] = MPI_DOUBLE;
             blen[nbufs] = m1;
             if( ierr == MPI_SUCCESS )
@@ -193,7 +193,7 @@ int HPL_packL
  */
       if( len > 0 )
       {                                            /* L1, DPIV, DINFO */
-         bufs[nbufs] = (void *)(PANEL->L1 + ibuf - jbm);
+         bufs[nbufs] = (void **)(PANEL->L1 + ibuf - jbm);
          type[nbufs] = MPI_DOUBLE;
          blen[nbufs] = len;
          if( ierr == MPI_SUCCESS )
@@ -203,7 +203,7 @@ int HPL_packL
  
       for( i = 1; i < nbufs; i++ ) disp[i] -= disp[0]; disp[0] = 0;
  
-      PANEL->buffers[IBUF] = (void *)(bufs[0]); PANEL->counts [IBUF] = 1;
+      PANEL->buffers[IBUF] = (void ***)(bufs[0]); PANEL->counts [IBUF] = 1;
 /*
  * construct the struct type 
  */
